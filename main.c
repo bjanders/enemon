@@ -114,16 +114,16 @@ init_uart(void)
 int
 main(void) {
 	/* Stop watchdog timer */
-    WDTCTL = WDTPW | WDTHOLD;
+	WDTCTL = WDTPW | WDTHOLD;
 
-    /* 12.5 pF oscillator capacitor */
-    BCSCTL3 = XCAP_3;
+	/* 12.5 pF oscillator capacitor */
+	BCSCTL3 = XCAP_3;
 
-    /* Use calibrated 8MHz settings */
-    BCSCTL1= CALBC1_8MHZ;
+	/* Use calibrated 8MHz settings */
+	BCSCTL1= CALBC1_8MHZ;
 	DCOCTL = CALDCO_8MHZ;
 
-    /* LEDs */
+	/* LEDs */
 	P1DIR = BIT0 + BIT6;
 
 	init_uart();
