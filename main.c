@@ -1,8 +1,34 @@
 #include <msp430.h> 
 #include <stdio.h>
 
+
+/* This program measures the interval between the falling edge of pulses on
+ * port P2.0 with a 32768 Hz resolution (~0.03 ms). The result is written on
+ * the serial port for each pulse in the follwing format:
+ * "T <pulses> <timeroverflows> <timer>"
+ * where:
+ * - <pulses> is the total number of pulses received since startup. The value
+ *   will overflow at 0xffff
+ * - <timeroverflows> is the number of times the timer has overflown 0xffff
+ *    between two pulses
+ * - <timer> the timer value
+ *
+ * The total time between two pulses is
+ *    t = <timeroverflows> * 0x10000 + <timer> 
+ * in 32786 Hz (0x8000 Hz) increments, i.e., in seconds this is t/32768 Hz
+ *    
+ * We have Timer1 constantly running from 0 to 0xffff, running at a rate of
+ * 32768 Hz. This means the timer will overflow every 2 seconds,
+ * 32768 Hz * 0xffff = 2 s. When the timer overflows, timer1_a1() is called
+ * where the variable 'overflows' is incrased by 1.
+ * 
+ * Whenever there is an interrupt on P2.0 timer1_a0() is called. Here the
+ * current timer value is recorded in 'curtime'. The value of the timer in the 
+ * previous interrupt is recorded in 'prevtime'. 'overflows' is reset to 0.
+ */
+
 char timestr[30];
-unsigned int seconds = 0;
+unsigned int overflows = 0;
 
 #pragma vector=USCIAB0TX_VECTOR
 interrupt void
@@ -33,17 +59,17 @@ timer1_a0(void) {
 	pulses++;
 	curtime = TA1CCR0;
 	if (curtime < prevtime) {
-		seconds--;
+		overflows--;
 		time = 0xffff - (prevtime - curtime);
 	} else {
 		time = curtime - prevtime;
 	}
 	prevtime = curtime;
-	sprintf(timestr, "T %u %u %u\r\n", pulses, seconds, time);
+	sprintf(timestr, "T %u %u %u\r\n", pulses, overflows, time);
 
 	/* Enable UART TX Interrupt to start outputting string */
 	IE2 |= UCA0TXIE;
-	seconds = 0;
+	overflows = 0;
 
 	/* Toggle LED to show pulse */
 	P1OUT ^= BIT6;
@@ -62,7 +88,7 @@ timer1_a1(void)
 
 	/* Read T11IV to clear interrupt */
 	TA1IV;
-	seconds++;
+	overflows++;
 
 	/* Toggle LED to show activity */
 	P1OUT ^= BIT0;
